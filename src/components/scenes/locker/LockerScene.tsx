@@ -1,5 +1,6 @@
 'use client'
 
+import { useControls } from 'leva';
 import { useRouter } from 'next/navigation';
 import { useRef, useEffect, useState, RefObject} from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
@@ -18,6 +19,9 @@ import {
 	useHelper,
 	useTexture,
 	OrbitControls,
+	GizmoHelper,
+	GizmoViewport,
+	Environment,
 } from '@react-three/drei';
 import {
 	Fog,
@@ -32,16 +36,16 @@ import {
 	BufferGeometry,
 } from 'three';
 
-const RED: string = 'red'
-const PRIMECOLOR: string = 'white'
+const CONTROLS = false;
 
 function Light () {
 	const dirLight1 = useRef<DirectionalLightHelper>(null!)
 	const dirLight2 = useRef<DirectionalLightHelper>(null!)
 	const dirLight3 = useRef<DirectionalLightHelper>(null!)
-	useHelper(dirLight1, DirectionalLightHelper, 5, 'blue');
-	useHelper(dirLight2, DirectionalLightHelper, 5, 'red');
-	useHelper(dirLight3, DirectionalLightHelper, 5, 'yellow');
+	// useHelper(dirLight1, DirectionalLightHelper, 5, 'blue');
+	// useHelper(dirLight3, DirectionalLightHelper, 5, 'yellow');
+	// useHelper(dirLight2, DirectionalLightHelper, 5, 'red');
+	// useHelper(dirLight4, DirectionalLightHelper, 5, 'white');
 
 	// const spLight = useRef<SpotLightHelper>(null!)
 	// useHelper(spLight, SpotLightHelper, 'red');
@@ -53,63 +57,156 @@ function Light () {
 
 	return (
 		<>
-			<ambientLight intensity={1}/>
+			<ambientLight intensity={.25}/>
 			<directionalLight
 				ref={dirLight1}
 				castShadow
 				color='white'
-				intensity={2}
-				position={[-1, 10, 6]}
+				intensity={1}
+				position={[-5, 20, 5]}
 				shadow-normalBias={0.002}
 				shadow-mapSize={[1024, 1024]}
 			>
-				<orthographicCamera
+				{/* <orthographicCamera
 					attach='shadow-camera'
 					args={[-10, 10, 10, -10]}
-				/>
+				/> */}
 			</directionalLight>
-			<directionalLight
+			{/* Sparkle Light */}
+			{/* <directionalLight
+				ref={dirLight3}
+				castShadow
+				color='white'
+				intensity={1}
+				position={[0, 30, -5]}
+				shadow-normalBias={0.002}
+				shadow-mapSize={[1024, 1024]}
+			>
+			</directionalLight> */}
+			{/* <directionalLight
 				ref={dirLight2}
 				castShadow
 				color='white'
 				intensity={1}
 				position={[10, 10, 1]}
-				shadow-normalBias={0.002}
+				shadow-normalBias={0.02}
 				shadow-mapSize={[1024, 1024]}
 			>
-			</directionalLight>
-			<directionalLight
-				ref={dirLight3}
-				castShadow
-				color='white'
-				intensity={.05}
-				rotateOnAxis={90}
-				position={[0, 10, 5]}
-				shadow-normalBias={0.002}
-				shadow-mapSize={[1024, 1024]}
-			>
-			</directionalLight>
-			{/* <spotLight
-				ref={spLight}
-				position={[10, 10, 10]}
-				angle={0.3}
-				penumbra={1}
-				intensity={1.2}
-				castShadow
-			/> */}
+			</directionalLight> */}
 		</>
 	)
 }
 
+const FOGCOLOR = 'black'
 function FogMachine() {
 	const { scene } = useThree()
 
 	useEffect(() => {
-		scene.fog = new Fog(RED, 10, 50)
-		scene.background = new Color(RED)
+		scene.fog = new Fog(FOGCOLOR, 40, 45)
+		scene.background = new Color(FOGCOLOR)
 	}, [scene])
 
 	return null
+}
+
+type tNameProps  = {
+	visible: boolean;
+}
+function Name({ visible }: tNameProps) {
+	const { camera } = useThree();
+	const vanderwolf = useRef<Group>(null!)
+	const vanderwolfMesh = useRef<Mesh>(null!)
+	const [theta, setTheta] = useState(0)
+	const { nodes } = useGLTF('/models/vanderwolf.glb')
+	const name = nodes.name as Mesh<BufferGeometry>
+
+	// Lights
+	const leftLightScale = new Vector3(40,40,40)
+	const rightLightScale = new Vector3(40,40,40)
+	const brightness = .3
+
+	const nameLightLeft = useRef<DirectionalLight | null>(null)
+	const nameLightLeftHelper = useRef<DirectionalLightHelper | null>(null)
+
+	const nameLightRight = useRef<DirectionalLight | null>(null)
+	const nameLightRightHelper = useRef<DirectionalLightHelper | null>(null)
+
+	useFrame(({ clock, camera }, dt, current) => {
+		const rad = .01
+		const speed = 0.01 // lower = slower
+		setTheta(prev => prev + speed)
+
+		// visible && vanderwolfMesh.current.lookAt(camera.position)
+		vanderwolf.current.rotation.x = 4 * rad * Math.sin(theta)
+		vanderwolf.current.rotation.z = 2 * rad * Math.sin(theta)
+		vanderwolf.current.rotation.y = 2 * rad * Math.sin(theta)
+		vanderwolf.current.rotation.y = 4 * rad * Math.cos(theta)
+		!visible
+			? easing.damp(vanderwolf.current.position, "y", 20, 0.05, dt)
+			: easing.damp(vanderwolf.current.position, "y", 0, 0.05, dt)
+
+		const lightPosX = 5
+		const lightPosY = 30
+		const lightPosZ = 5
+
+		// White
+		const l = nameLightLeft.current!
+		l.target.position.set(-10,20,0)  // where to look
+		l.position.set(lightPosX, lightPosY, lightPosZ)
+
+		// Red
+		const r = nameLightRight.current!
+		r.target.position.set(0,20,-10)  // where to look
+		r.position.set(lightPosX, lightPosY, lightPosZ)
+	})
+
+	return (
+		<>
+			<directionalLight
+				// ref={ nameLightLeftHelper }
+				ref={(el) => {
+					nameLightLeft.current = el;
+					nameLightLeftHelper.current = el ? new DirectionalLightHelper(el, 5, 'white') : null;
+				}}
+				castShadow
+				color='white'
+				intensity={brightness}
+				rotateOnAxis={90}
+				scale={leftLightScale}
+				position={[0,0,0]}
+			>
+			</directionalLight>
+			<directionalLight
+				// ref={ nameLightLeftHelper }
+				ref={(el) => { nameLightRight.current = el; nameLightRightHelper.current = el ? new DirectionalLightHelper(el, 5, 'red') : null; }}
+				castShadow
+				color='white'
+				intensity={brightness}
+				rotateOnAxis={90}
+				scale={rightLightScale}
+				position={[0,0,0]}
+			>
+			</directionalLight>
+			<group ref={vanderwolf} dispose={null}>
+				<mesh
+					ref={vanderwolfMesh}
+					castShadow
+					receiveShadow
+					scale={250}
+					position={[-13, 19, -10]}
+					geometry={name.geometry}
+					// rotation={[Math.PI / 1.7,Math.PI / 50,Math.PI / -4]}
+					rotation={[0,Math.PI / 3.9,0]}
+				>
+					<meshStandardMaterial
+						color={'goldenrod'}
+						metalness={1}
+						roughness={0.1}
+					/>
+				</mesh>
+			</group>
+		</>
+	)
 }
 
 type InLockerProps = {
@@ -264,9 +361,12 @@ function PakPak({ paks, pos, lockerClick }: PakPakProps) {
 }
 
 type LockerProps = {
+	onClick: () => void;
+	onPointerMissed: () => void;
+	enableControls: boolean;
 	lockerRef: RefObject<Group | null>
 }
-function Locker ({ lockerRef }: LockerProps) {
+function Locker ({ lockerRef, enableControls, onPointerMissed, onClick }: LockerProps) {
 	const router = useRouter();
 	const locker = useRef<Mesh>(null!)
 	const lockerDoor = useRef<Mesh>(null!)
@@ -277,13 +377,17 @@ function Locker ({ lockerRef }: LockerProps) {
 	const closedFlag = useRef(clicked)
 	const openFlag = useRef(!clicked)
 
-	const { nodes } = useGLTF('/models/locker-v1.glb');
+	const { nodes } = useGLTF('/models/locker-v1.glb')
 	const lockerMesh = nodes.locker as Mesh<BufferGeometry>
 	const lockerDoorMesh = nodes['locker-door'] as Mesh<BufferGeometry>
 	const lockerHandleMesh = nodes['right-handle'] as Mesh<BufferGeometry>
 
+	// Light
+	const lockerLight = useRef<DirectionalLight>(null!)
+	const lockerLightHelper = useRef<DirectionalLightHelper>(null!)
+	useHelper(lockerLightHelper, DirectionalLightHelper, 5, 'yellow')
+
 	const lockerClick = (page: string) => {
-		console.log(`Redirect to ${page}...`)
 		router.push('/paks')
 	}
 
@@ -292,6 +396,7 @@ function Locker ({ lockerRef }: LockerProps) {
 
 	// Locker Settings
 	const LOCKER_ROUGHNESS: number = 0.25
+	const LOCKERCOLOR: string = 'lightslategrey'
 
 	// Locker Content Positions
 	const LOCKER_TOP = new Vector3(0,6.5,.5)
@@ -328,10 +433,12 @@ function Locker ({ lockerRef }: LockerProps) {
 		const glowZScale = clicked ? 0 : 1
 		const glowYScale = clicked ? 0 : 1
 		const glowEmission = clicked ? 0 : 10
+		// setTimeout(() => {
+		// }, 300)
 		easing.damp(glow.current.scale, "y", glowYScale, 0.05, dt)
 		easing.damp(glow.current.scale, "z", glowZScale, 0.05, dt)
 		easing.damp(glow.current.position, "z", glowZ, 0.05, dt)
-		easing.damp(glow.current.material, "emissiveIntensity", glowEmission, 1, dt)
+		easing.damp(glow.current.material, "emissiveIntensity", glowEmission, 5, dt)
 
 		// Locker Door
 		easing.damp(lockerDoor.current.rotation, "y", rotY.get(), 0.65, dt)
@@ -339,19 +446,22 @@ function Locker ({ lockerRef }: LockerProps) {
 
 		// Camera
 		prevCamPos.current.copy(camera.position)
-		const camTargetPos = clicked ? new Vector3(1,15,5) : prevCamPos.current.clone().add(new Vector3(15,-9,15))
+		const camTargetPos = clicked ? new Vector3(3,12,9) : new Vector3(15,2,15)
 		if (closedFlag.current !== clicked) {
 			camera.lookAt(locker.current.position.clone().add(new Vector3(-1,4.1,0)))
-			camera.position.lerp(camTargetPos, 0.08);
+			enableControls && camera.position.lerp(camTargetPos, 0.08);
 		}
 		if (openFlag.current !== clicked) {
-			camera.position.lerp(camTargetPos, 0.04);
+			enableControls && camera.position.lerp(camTargetPos, 0.04);
 			camera.lookAt(locker.current.position.clone().add(new Vector3(0,4.1,0)))
 		}
+
+		// lockerLight.current.lookAt(locker.current.position)
+		// lockerLightHelper.current.lookAt(locker.current.position)
 	})
 
 	return (
-		<group ref={lockerRef}>
+		<group ref={lockerRef} onClick={onClick} onPointerMissed={onPointerMissed} rotation={[.01,0,-.01]}>
 			<group
 				ref={locker}
 				castShadow
@@ -363,13 +473,28 @@ function Locker ({ lockerRef }: LockerProps) {
 				rotation={[0,0,0]}
 				position={[0,6,0]}
 			>
+				<directionalLight
+					ref={(el) => {
+						lockerLight.current = el;
+						lockerLightHelper.current = el;
+					}}
+					castShadow
+					color='white'
+					intensity={.5}
+					// scale={[1,4,1]}
+					position={[0, 6, 5]}
+					// rotateOnAxis={90}
+					// shadow-normalBias={0.02}
+					// shadow-mapSize={[1024, 1024]}
+				>
+				</directionalLight>
 				<mesh
 					castShadow
 					receiveShadow
 					geometry={lockerMesh.geometry}
 					position={[-0.005, 4.341, -0.223]}
 				>
-					<meshStandardMaterial metalness={1} roughness={LOCKER_ROUGHNESS} color={PRIMECOLOR} />
+					<meshStandardMaterial metalness={1} roughness={LOCKER_ROUGHNESS} color={LOCKERCOLOR} />
 				</mesh>
 				<a.mesh
 					ref={lockerDoor}
@@ -389,7 +514,7 @@ function Locker ({ lockerRef }: LockerProps) {
 					>
 						<meshStandardMaterial metalness={1} roughness={LOCKER_ROUGHNESS} color="gold" />
 					</mesh>
-					<meshStandardMaterial metalness={1} roughness={LOCKER_ROUGHNESS} color={PRIMECOLOR} />
+					<meshStandardMaterial metalness={1} roughness={LOCKER_ROUGHNESS} color={LOCKERCOLOR} />
 				</a.mesh>
 				{clicked && (
 					<>
@@ -421,13 +546,17 @@ function Locker ({ lockerRef }: LockerProps) {
 // 	return (
 // 		<mesh receiveShadow rotation={[-Math.PI / 2,0,0]} position={[0, -1.5, 0]} ref={floor}>
 // 			<planeGeometry args={[100, 100]}/>
-// 			<meshStandardMaterial side={DoubleSide} color={PRIMECOLOR} />
+// 			<meshStandardMaterial side={DoubleSide} color={LOCKERCOLOR} />
 // 		</mesh>
 // 	);
 // }
 
 export default function LockerScene () {
+	const { controls } = useControls({
+		controls: { value: true }
+	});
 	const locker = useRef<Group>(null!)
+	const [nameVis, setNameVis] = useState(true)
 
 	return (
 		<div className='h-screen w-screen'>
@@ -436,26 +565,47 @@ export default function LockerScene () {
 				// fog={{ color: '#aaaaaa', near: 5, far: 20 }}
 				gl={{ antialias: true }}
 				onCreated={ ({ gl }) => {
-					gl.setClearColor('yellow', 1)
+					gl.setClearColor('black', 1)
 					// gl.setClearColor('#00FF4C', 1)
 				}}
 			>
 				{/* <color attach="background" args={['#362929']} /> */}
 				{/* <Sky distance={450000} sunPosition={[0,-20,0]} inclination={0} azimuth={0.25} /> */}
 				<Light />
-				<Locker lockerRef={locker}/>
+				<Name visible={nameVis} />
+				<Locker
+					lockerRef={locker}
+					enableControls={controls}
+					onClick={() => setNameVis(false)}
+					onPointerMissed={() => setNameVis(true)}
+				/>
 				{/* <FogMachine /> */}
 				{/* <Floor /> */}
-				<OrbitControls
+				{!controls && <OrbitControls
+					makeDefault
 					enableDamping
-					minDistance={16}  // minimum zoom (closer = smaller number)
-					maxDistance={25}
-					enablePan={false}
-					minAzimuthAngle={-Math.PI / 6}  // -45°
-  					maxAzimuthAngle={Math.PI / 4}   // +45°
-					minPolarAngle={Math.PI / 4}   // 30°
-  					maxPolarAngle={Math.PI / 2}   // 90°
+					enablePan={true}
+					// minDistance={16}  // minimum zoom (closer = smaller number)
+					// maxDistance={25}
+					// minAzimuthAngle={-Math.PI / 6}  // -45°
+  					// maxAzimuthAngle={Math.PI / 4}   // +45°
+					// minPolarAngle={Math.PI / 4}   // 30°
+  					// maxPolarAngle={Math.PI / 2}   // 90°
+				/>}
+				<Environment
+					preset="studio"
+					background={false}
+					backgroundBlurriness={1}
+					environmentRotation={nameVis ? [0, Math.PI / 2, 0] : [0, Math.PI / 3, 0]}
+					environmentIntensity={.1}
 				/>
+				<GizmoHelper
+					alignment="bottom-right" // widget alignment within scene
+					margin={[0, 0]} // widget margins (X, Y)
+				>
+				<GizmoViewport axisColors={['red', 'green', 'blue']} labelColor="black" />
+				{/* alternative: <GizmoViewcube /> */}
+				</GizmoHelper>
 				<EffectComposer>
 					<Bloom intensity={1.5} luminanceThreshold={1} luminanceSmoothing={0.9} />
 				</EffectComposer>

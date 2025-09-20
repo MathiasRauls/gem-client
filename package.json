@@ -14,10 +14,11 @@
     "@react-three/fiber": "^9.2.0",
     "@react-three/postprocessing": "^3.0.4",
     "@types/three": "^0.178.1",
-    "next": "^15.4.4",
+    "leva": "^0.10.0",
+    "next": "^15.5.2",
     "raw-loader": "^4.0.2",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
     "three": "^0.178.0"
   },
   "devDependencies": {
